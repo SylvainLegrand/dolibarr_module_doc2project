@@ -211,7 +211,7 @@ class ActionsDoc2Project
 			//$object->duration_effective souvent faux :-/ recalcule en requête
 			if(!empty($object->id))
 			{
-				if (version_compare('18.0.0', DOL_VERSION, '<'))
+				if (version_compare(DOL_VERSION, '18.0.0', '<'))
 				{
 					$sql = "SELECT SUM(task_duration) as duration_effective, SUM(thm * task_duration/3600) as costprice";
 					$sql.= " FROM ".MAIN_DB_PREFIX."projet_task_time WHERE fk_task=".$object->id;
@@ -329,5 +329,34 @@ class ActionsDoc2Project
 		return 0;
 	}
 
-
+	/**
+	 * afterCreateProject
+	 *
+	 * @param array()		   $parameters	  Hook metadatas (context, etc...)
+	 * @param CommonObject    &$object        The object being processed (e.g., an invoice, proposal, etc...)
+	 * @param string          &$action        The current action (usually create, edit, or null)
+	 * @param HookManager      $hookmanager   Hook manager instance to allow calling another hook
+	 * @return int                            Returns < 0 on error, 0 on success, 1 to replace standard code
+	 */
+	function afterCreateProject($parameters, &$object, &$action, $hookmanager): int
+	{
+		global $conf, $user;
+		if ($action == 'afterCreateProject' && !empty($conf->global->DOC2PROJECT_ADD_USAGE_TASK_ON_PROJECT)){
+			$project = new Project($this->db);
+			if ($project->fetch($parameters['project']->id) > 0){
+				$project->usage_task = 1;
+				if ($project->update($user, 1) >= 0) {
+					return 0;
+				}
+				else {
+					setEventMessage($this->db->lasterror());
+					return -1;
+				}
+			}else {
+				setEventMessage($this->db->lasterror());
+				return -1;
+			}
+		}
+		return 0;
+	}
 }
