@@ -25,7 +25,7 @@
 
 function doc2projectAdminPrepareHead()
 {
-    global $langs, $conf;
+    global $langs, $conf, $object;
 
     $langs->load("doc2project@doc2project");
 
@@ -80,7 +80,7 @@ function showLinesToParse(&$object)
                 </tr></thead><tbody>';
 
     // CREATION D'UNE TACHE GLOBAL POUR LA SAISIE DES TEMPS
-    if (!empty($conf->global->DOC2PROJECT_CREATE_GLOBAL_TASK))
+    if (getDolGlobalInt('DOC2PROJECT_CREATE_GLOBAL_TASK'))
     {
         print '<tr>';
         print '<td colspan="6" ><strong>'.$langs->trans('Doc2ProjectGlobalTaskLabel').'</strong> - '.$langs->trans('Doc2ProjectGlobalTaskDesc').'</td>';
@@ -119,11 +119,11 @@ function showLinesToParse(&$object)
                 $lineType = 'subtotal';
             }
         }
-        elseif (!empty($conf->global->DOC2PROJECT_USE_NOMENCLATURE_AND_WORKSTATION))
+        elseif (getDolGlobalInt('DOC2PROJECT_USE_NOMENCLATURE_AND_WORKSTATION'))
         {
             //Avec les postes de travails liés à la nomenclature
-            if(!empty($line->fk_product) || (!empty($conf->global->DOC2PROJECT_ALLOW_FREE_LINE) && $line->fk_product === null) ) {
-                define('INC_FROM_DOLIBARR',true);
+            if(!empty($line->fk_product) || (getDolGlobalInt('DOC2PROJECT_ALLOW_FREE_LINE') && $line->fk_product === null) ) {
+                if(!defined('INC_FROM_DOLIBARR')) define('INC_FROM_DOLIBARR',true);
                 $Tcrawl = nomenclatureProductDeepCrawl($line->rowid, $object->element,$line->fk_product,$line->qty);
                 if(!empty($Tcrawl))
                 {
@@ -134,7 +134,7 @@ function showLinesToParse(&$object)
         }
         else if(
             (!empty($line->fk_product) && $line->fk_product_type == 1) // Line type service
-            || (!empty($conf->global->DOC2PROJECT_ALLOW_FREE_LINE) && $line->fk_product === null)  // Free line
+            || (getDolGlobalInt('DOC2PROJECT_ALLOW_FREE_LINE') && $line->fk_product === null)  // Free line
             )
         {
 
@@ -142,7 +142,7 @@ function showLinesToParse(&$object)
             // On ne créé que les tâches correspondant à des services
 
 
-            if(!empty($conf->global->DOC2PROJECT_CREATE_TASK_FOR_VIRTUAL_PRODUCT) && !empty($conf->global->PRODUIT_SOUSPRODUITS) && !is_null($line->ref))
+            if(getDolGlobalInt('DOC2PROJECT_CREATE_TASK_FOR_VIRTUAL_PRODUCT') && !empty(getDolGlobalString('PRODUIT_SOUSPRODUITS')) && !is_null($line->ref))
             {
                 $s = new Product($db);
                 $s->fetch($line->fk_product);
@@ -151,8 +151,8 @@ function showLinesToParse(&$object)
 
                 if(!empty($TProdArbo)){
 
-                    if(!empty($conf->global->DOC2PROJECT_CREATE_TASK_FOR_PARENT)){
-                        if($conf->workstationatm->enabled && $conf->global->DOC2PROJECT_WITH_WORKSTATION){
+                    if(getDolGlobalInt('DOC2PROJECT_CREATE_TASK_FOR_PARENT')){
+                        if($conf->workstationatm->enabled && getDolGlobalInt('DOC2PROJECT_WITH_WORKSTATION')){
                             dol_include_once('/workstationatm/class/workstation.class.php');
 
                             $Tids = TRequeteCore::get_id_from_what_you_want($PDOdb, MAIN_DB_PREFIX."workstation_product",array('fk_product'=>$line->fk_product));
@@ -286,7 +286,7 @@ function taskViewToHtml($Tlines)
 function  nomenclatureProductDeepCrawl($fk_element, $element, $fk_product,$qty = 1, $deep = 0, $maxDeep = 0){
     global $db,$conf;
 
-    $maxDeepConf = empty($conf->global->NOMENCLATURE_MAX_NESTED_LEVEL) ? 50 : $conf->global->NOMENCLATURE_MAX_NESTED_LEVEL;
+    $maxDeepConf = getDolGlobalInt('NOMENCLATURE_MAX_NESTED_LEVEL') ?? 50;
     $maxDeep = !empty($maxDeep)?$maxDeep:$maxDeepConf ;
 
     if($deep>$maxDeep){ return array(); }
@@ -331,7 +331,7 @@ function  nomenclatureProductDeepCrawl($fk_element, $element, $fk_product,$qty =
         }
 
         // RECUPERATION DES WORKSTATIONS
-        if(!empty($conf->workstationatm->enabled) && !empty($conf->global->DOC2PROJECT_WITH_WORKSTATION) )
+        if(!empty($conf->workstationatm->enabled) && getDolGlobalInt('DOC2PROJECT_WITH_WORKSTATION') )
         {
             dol_include_once('/workstationatm/class/workstation.class.php');
             if(!empty($nomenclature->TNomenclatureWorkstation))
@@ -375,7 +375,7 @@ function  nomenclatureProductDeepCrawl($fk_element, $element, $fk_product,$qty =
 function getWorkdays($start, $end) {
     global $conf;
 
-    $defaultWorkingDays = explode('-',(isset($conf->global->MAIN_DEFAULT_WORKING_DAYS)?$conf->global->MAIN_DEFAULT_WORKING_DAYS:'1-5')); // yes, it's true dolibarr don't create a default '1-5' value so on fresh install of dolibarr this conf is empty. ENJOY!
+    $defaultWorkingDays = explode('-',(getDolGlobalInt('MAIN_DEFAULT_WORKING_DAYS') ?? '1-5')); // yes, it's true dolibarr don't create a default '1-5' value so on fresh install of dolibarr this conf is empty. ENJOY!
 
     $start = strtotime($date1);
     $end   = strtotime($date2);

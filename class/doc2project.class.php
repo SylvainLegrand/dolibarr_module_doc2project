@@ -9,7 +9,7 @@ class Doc2Project {
 		$exclude = false;
 
 		// FROM SEND FORM
-		if(!empty($conf->global->DOC2PROJECT_PREVUE_BEFORE_CONVERT)){
+		if(getDolGlobalInt('DOC2PROJECT_PREVUE_BEFORE_CONVERT')){
 		    // Check if line is selected
 		    $linecheckbox = GETPOST('doc2projectline');
 		    // var_dump(array( !empty($linecheckbox), !isset($linecheckbox[$line->id]) ));
@@ -20,19 +20,19 @@ class Doc2Project {
 		    }
 		}
 
-		if (!empty($conf->global->DOC2PROJECT_DO_NOT_CONVERT_SERVICE_WITH_PRICE_ZERO) && $line->subprice == 0)
+		if (getDolGlobalInt('DOC2PROJECT_DO_NOT_CONVERT_SERVICE_WITH_PRICE_ZERO') && $line->subprice == 0)
         {
             if (!empty($conf->subtotal->enabled) && TSubtotal::isModSubtotalLine($line)) { /* nothing to do */ }
             else return true;
         }
-		if (!empty($conf->global->DOC2PROJECT_DO_NOT_CONVERT_SERVICE_WITH_QUANTITY_ZERO) && $line->qty == 0) return   true;
+		if (getDolGlobalInt('DOC2PROJECT_DO_NOT_CONVERT_SERVICE_WITH_QUANTITY_ZERO') && $line->qty == 0) return   true;
 
 		// FROM CONFIG : PRODUCT REF
-		$TExclude = explode(';', $conf->global->DOC2PROJECT_EXCLUDED_PRODUCTS);
-		if (!empty($conf->global->DOC2PROJECT_EXCLUDED_PRODUCTS) && in_array($line->ref, $TExclude)) return  true;
+		$TExclude = explode(';', getDolGlobalString('DOC2PROJECT_EXCLUDED_PRODUCTS'));
+		if (count($TExclude) > 0 && in_array($line->ref, $TExclude)) return  true;
 
 		// Subtotal
-		if (empty($conf->global->DOC2PROJECT_CREATE_TASK_WITH_SUBTOTAL) && !empty($conf->subtotal->enabled) && TSubtotal::isModSubtotalLine($line)) return true;
+		if (!getDolGlobalInt('DOC2PROJECT_CREATE_TASK_WITH_SUBTOTAL') && !empty($conf->subtotal->enabled) && TSubtotal::isModSubtotalLine($line)) return true;
 
 		return $exclude;
 	}
@@ -42,7 +42,7 @@ class Doc2Project {
 		$project->fetch_thirdparty();
 
 		$defaultref='';
-		$modele = empty($conf->global->PROJECT_ADDON)?'mod_project_simple':$conf->global->PROJECT_ADDON;
+		$modele = getDolGlobalString('PROJECT_ADDON') ?? 'mod_project_simple';
 
 		// Search template files
 		$file=''; $classname=''; $filefound=0;
@@ -100,7 +100,7 @@ class Doc2Project {
 			{
 				$r = $project->fetch($object->fk_project);
 
-				if (!empty($conf->global->DOC2PROJECT_SET_PROJECT_DRAFT)) { $res = $project->setStatut(0); $project->statut = 0; }
+				if (getDolGlobalInt('DOC2PROJECT_SET_PROJECT_DRAFT')) { $res = $project->setStatut(0); $project->statut = 0; }
 
 				if($project->id>0) return $project;
 				else return false;
@@ -115,7 +115,7 @@ class Doc2Project {
 				$object->ref = $object->newref;
 			}
 
-			if(!empty($conf->global->DOC2PROJECT_TITLE_PROJECT) ) {
+			if(getDolGlobalString('DOC2PROJECT_TITLE_PROJECT') ) {
 				$Trans=array(
 					'{ref_client}'=>	$object->ref_client
 					,'{thirdparty_name}'=>$object->thirdparty->name
@@ -128,12 +128,12 @@ class Doc2Project {
 					}
 				}
 
-				$title = strtr($conf->global->DOC2PROJECT_TITLE_PROJECT,$Trans);
+				$title = strtr(getDolGlobalString('DOC2PROJECT_TITLE_PROJECT'),$Trans);
 
 			}
 			else{
 				$title = (!empty($object->ref_client)) ? $object->ref_client : $object->thirdparty->name.' - '.$object->ref.' '.$langs->trans('DocConverted');
-                if (strpos($object->title, $object->thirdparty->name) === false && !empty($conf->global->DOC2PROJECT_ALWAYS_ADD_THIRDPARTY_PROJECT_TITLE)) $title = $object->thirdparty->name.' - '.$title;
+                if (!empty($object->title) && str_contains($object->title, $object->thirdparty->name) && getDolGlobalInt('DOC2PROJECT_ALWAYS_ADD_THIRDPARTY_PROJECT_TITLE')) $title = $object->thirdparty->name.' - '.$title;
 				$title = $langs->trans('Doc2ProjectTitle', $title);
 			}
 
@@ -142,7 +142,7 @@ class Doc2Project {
 			$project->description    = '';
 			$project->public         = 1; // 0 = Contacts du projet  ||  1 = Tout le monde
 			$project->datec			 = dol_now();
-			$project->date_start	 = (!empty($object->date_livraison))?$object->date_livraison:dol_now();
+			$project->date_start	 = !empty($object->delivery_date) ? $object->delivery_date : dol_now();
 			$project->date_end		 = null;
 
 			$project->ref 			 = self::get_project_ref($project);
@@ -204,7 +204,7 @@ class Doc2Project {
 
 
 		$durationInSec = $end = '';
-		if(!empty($conf->global->DOC2PROJECT_CONVERSION_RULE)) {
+		if(getDolGlobalString('DOC2PROJECT_CONVERSION_RULE')) {
 
 			$Trans = array(
 					'{qty}'=>$line->qty
@@ -214,7 +214,7 @@ class Doc2Project {
 			);
 
 			if(!empty($conf->workstationatm->enabled) && $fk_workstation>0) {
-				define('INC_FROM_DOLIBARR',true);
+                if(!defined('INC_FROM_DOLIBARR')) define('INC_FROM_DOLIBARR',true);
 				dol_include_once('/workstationatm/config.php');
 				dol_include_once('/workstationatm/class/workstation.class.php');
 				$PDOdb=new TPDOdb;
@@ -223,12 +223,12 @@ class Doc2Project {
 				$Trans['{workstation_code}']=$ws->code;
 			}
 
-			$eval = strtr($conf->global->DOC2PROJECT_CONVERSION_RULE,$Trans);
+			$eval = strtr(getDolGlobalString('DOC2PROJECT_CONVERSION_RULE'),$Trans);
 
 			if(strpos($eval,'return ')===false)$eval = 'return ('.$eval.');';
 
 			$durationInSec = eval($eval) * 3600;
-			$nbDays = ceil(($durationInSec / 3600) / ($conf->global->DOC2PROJECT_NB_HOURS_PER_DAY ? $conf->global->DOC2PROJECT_NB_HOURS_PER_DAY : 1)); //@todo et si DOC2PROJECT_NB_HOURS_PER_DAY == 0 ? manque un test
+			$nbDays = ceil(($durationInSec / 3600) / (getDolGlobalInt('DOC2PROJECT_NB_HOURS_PER_DAY') ?? 1));
 
 		}
 		else if($line->fk_product!=null){
@@ -238,11 +238,11 @@ class Doc2Project {
 
 			$nbDays = 0;
 			if($product->duration_unit == 'd') { // Service vendu au jour, la date de fin dépend du nombre de jours vendus
-				$durationInSec = $line->qty * (empty($product->duration_value) ? 0 : $product->duration_value) * 3600 * $conf->global->DOC2PROJECT_NB_HOURS_PER_DAY;
+				$durationInSec = $line->qty * (empty($product->duration_value) ? 0 : $product->duration_value) * 3600 * getDolGlobalInt('DOC2PROJECT_NB_HOURS_PER_DAY');
 				$nbDays = $line->qty * (empty($product->duration_value)?0:$product->duration_value);
 			} else if($product->duration_unit == 'h') { // Service vendu à l'heure, la date de fin dépend du nombre d'heure vendues
 				$durationInSec = $line->qty * (empty($product->duration_value) ? 0 : $product->duration_value) * 3600;
-				$nbDays = ceil($line->qty * (empty($product->duration_value) ? 0 : $product->duration_value) / ($conf->global->DOC2PROJECT_NB_HOURS_PER_DAY ? $conf->global->DOC2PROJECT_NB_HOURS_PER_DAY : 1)); //@todo et si DOC2PROJECT_NB_HOURS_PER_DAY == 0 ? manque un test
+				$nbDays = ceil($line->qty * (empty($product->duration_value) ? 0 : $product->duration_value) / (getDolGlobalInt('DOC2PROJECT_NB_HOURS_PER_DAY') ?? 1)); //@todo et si DOC2PROJECT_NB_HOURS_PER_DAY == 0 ? manque un test
 			} else if($product->duration_unit == 'i') { // Service vendu à la minute
                 $durationInSec = $line->qty * (empty($product->duration_value) ? 0 : $product->duration_value) * 60;
             } else {
@@ -253,13 +253,13 @@ class Doc2Project {
 		// Si les 2 méthodes d'avant ne sont pas appelées ou que le résultat vos 0, alors on calcule avec la conf de doc2project
 		if (empty($durationInSec))
 		{
-			$durationInSec = $line->qty * $conf->global->DOC2PROJECT_NB_HOURS_PER_DAY * 3600;
+			$durationInSec = $line->qty * getDolGlobalInt('DOC2PROJECT_NB_HOURS_PER_DAY') * 3600;
 			$nbDays = $line->qty;
 
 		}
 
 		// TODO à voir si la conf ne doit pas réinit la valeur des dates à vide s'il n'y en a pas sur la ligne pour éviter d'avoir 2 modes d'affectation des dates
-        if (!empty($conf->global->DOC2PROJECT_USE_DATE_FROM_LINE) && !empty($line->date_start) && !empty($line->date_end))
+        if (getDolGlobalInt('DOC2PROJECT_USE_DATE_FROM_LINE') && !empty($line->date_start) && !empty($line->date_end))
         {
             $start = $line->date_start;
             $end = $line->date_end;
@@ -272,11 +272,11 @@ class Doc2Project {
 
 		$t = new Task($db);
 		$defaultref=self::getNewDefaultTaskRef($line, $t);
-		if(!empty($conf->global->DOC2PROJECT_TASK_REF_PREFIX)) {
-			$defaultref = $conf->global->DOC2PROJECT_TASK_REF_PREFIX.$line->rowid;
+		if(getDolGlobalString('DOC2PROJECT_TASK_REF_PREFIX')) {
+			$defaultref = getDolGlobalString('DOC2PROJECT_TASK_REF_PREFIX') . $line->rowid;
 		}
 
-		if (!empty($conf->global->DOC2PROJECT_TASK_NAME)) $label = strtr($conf->global->DOC2PROJECT_TASK_NAME, array('{product_ref}' => $line->ref, '{product_label}' => $line->product_label));
+		if (getDolGlobalString('DOC2PROJECT_TASK_NAME')) $label = strtr(getDolGlobalString('DOC2PROJECT_TASK_NAME'), array('{product_ref}' => $line->ref, '{product_label}' => $line->product_label));
 		else $label = !empty($line->product_label) ? $line->product_label : $line->desc;
 
 //var_dump($defaultref, $label,  $project->id);exit;
@@ -289,8 +289,9 @@ class Doc2Project {
 
 
 
-
-	public static function parseLines(&$object,&$project,&$start,&$end, &$story = '')
+    // return array 'linesImported' => int, 'linesExcluded' => int, 'linesImportError' => int
+    // parce que c'est mieux que ce qu'il y avait avant ie fck all
+	public static function parseLines(&$object,&$project,&$start,&$end, &$story = '') : array
 	{
 		global $conf,$langs,$db,$user,$TStory;
 
@@ -300,9 +301,9 @@ class Doc2Project {
 		dol_include_once('/subtotal/class/subtotal.class.php');
 
 		// CREATION D'UNE TACHE GLOBAL POUR LA SAISIE DES TEMPS
-		if (!empty($conf->global->DOC2PROJECT_CREATE_GLOBAL_TASK))
+		if (getDolGlobalInt('DOC2PROJECT_CREATE_GLOBAL_TASK'))
 		{
-			self::createOneTask($project->id, $conf->global->DOC2PROJECT_TASK_REF_PREFIX.'GLOBAL', $langs->trans('Doc2ProjectGlobalTaskLabel'), $langs->trans('Doc2ProjectGlobalTaskDesc'));
+			self::createOneTask($project->id, getDolGlobalString('DOC2PROJECT_TASK_REF_PREFIX') . 'GLOBAL', $langs->trans('Doc2ProjectGlobalTaskLabel'), $langs->trans('Doc2ProjectGlobalTaskDesc'));
 		}
 
 		// Tableau qui va contenir à chaque indice (niveau du titre) l'id de la dernier tache parent
@@ -313,8 +314,10 @@ class Doc2Project {
 		$fk_task_parent = 0;
 
 		$linesImported = 0;
-		$linesExcluded =0;
-		$linesImportError =0;
+		$linesExcluded = 0;
+		$linesImportError = 0;
+
+        $TremonterDesInfosCestBien = array ('linesImported' => &$linesImported, 'linesExcluded' => &$linesExcluded, 'linesImportError' => &$linesImportError);
 
 		$TTaskAddedList = array(); // populate with task id
 
@@ -322,18 +325,19 @@ class Doc2Project {
 		foreach($object->lines as &$line)
 		{
 
-		    if(!empty($conf->global->DOC2PROJECT_CREATE_SPRINT_FROM_TITLE) && !empty($conf->subtotal->enabled) && TSubtotal::isTitle($line)){
+		    if(getDolGlobalInt('DOC2PROJECT_CREATE_SPRINT_FROM_TITLE') && !empty($conf->subtotal->enabled) && TSubtotal::isTitle($line)){
 				$story = TSubtotal::getTitleLabel($line);
 				self::add_story($TStory,$story,$project->id);
 			}
 
 			// EXCLUDED LINES
+            // on test maintenant puis plus bas on reteste pour refaire rien :/
 			if(self::isExclude($line)){
 			    $linesExcluded ++;
 			    continue;
 			}
 
-			$linesImported++;
+			// $linesImported++; un peu useless de faire ça _AVANT_ d'importer
 
 			if (!empty($conf->subtotal->enabled) && TSubtotal::isModSubtotalLine($line))
 			{
@@ -345,8 +349,9 @@ class Doc2Project {
 					$label = !empty($line->product_label) ? $line->product_label : $line->label;
 					$desc =  !empty($line->description) ? $line->description : $line->desc;
 
+                    $task_parent_ref = !empty(getDolGlobalString('DOC2PROJECT_TASK_REF_PREFIX')) ? getDolGlobalString('DOC2PROJECT_TASK_REF_PREFIX') . $line->rowid : self::getNewDefaultTaskRef($line);
 					$fk_task_parent = self::createOneTask($project->id,
-                        $conf->global->DOC2PROJECT_TASK_REF_PREFIX ? $conf->global->DOC2PROJECT_TASK_REF_PREFIX.$line->rowid : self::getNewDefaultTaskRef($line),
+                        $task_parent_ref,
                         $label,
                         $desc,
                         '',
@@ -374,11 +379,11 @@ class Doc2Project {
 					$fk_task_parent = isset($TTask_id_parent[$index]) && !empty($TTask_id_parent[$index]) ? $TTask_id_parent[$index] : 0;
 				}
 			}
-            elseif (!empty($conf->global->DOC2PROJECT_USE_NOMENCLATURE_AND_WORKSTATION) && !empty($conf->nomenclature->enabled))
+            elseif (getDolGlobalString('DOC2PROJECT_USE_NOMENCLATURE_AND_WORKSTATION') && !empty($conf->nomenclature->enabled))
 			{
 				//self::createOneTask(...); //Avec les postes de travails liés à la nomenclature
 				if(!empty($line->fk_product)) {
-					define('INC_FROM_DOLIBARR',true);
+                    if(!defined('INC_FROM_DOLIBARR')) define('INC_FROM_DOLIBARR',true);
 					dol_include_once('/nomenclature/config.php');
 					dol_include_once('/nomenclature/class/nomenclature.class.php');
 					$nomenclature = new TNomenclature($db);
@@ -391,17 +396,18 @@ class Doc2Project {
 					$nomenclature->loadByObjectId($PDOdb,$line->rowid, $object->element, false, $line->fk_product);//get lines of nomenclature
 					if(!empty($nomenclature->TNomenclatureDet) || !empty($nomenclature->TNomenclatureWorkstation )){
 						$lastCreateTask = self::nomenclatureToTask($nomenclature,$line,$object, $project, $start, $end,$story);
-					}elseif( (!empty($line->fk_product) && $line->fk_product_type == 1)){
+                        $TTaskAddedList[] = $lastCreateTask;
+                    }elseif( (!empty($line->fk_product) && $line->fk_product_type == 1)){
 					    $lastCreateTask = self::lineToTask($object,$line,$project,$start,$end,$fk_parent,$isParent,$fk_workstation,$story);
 						$TTaskAddedList[] = $lastCreateTask;
 					}
 				}
 			}
 			// => ligne de type service	=> ligne libre
-			elseif( (!empty($line->fk_product) && $line->fk_product_type == 1) || (!empty($conf->global->DOC2PROJECT_ALLOW_FREE_LINE) && $line->fk_product === null) )
+			elseif( (!empty($line->fk_product) && $line->fk_product_type == 1) || (getDolGlobalInt('DOC2PROJECT_ALLOW_FREE_LINE') && $line->fk_product === null) )
 			{ // On ne créé que les tâches correspondant à des services
 
-				if(!empty($conf->global->DOC2PROJECT_CREATE_TASK_FOR_VIRTUAL_PRODUCT) && !empty($conf->global->PRODUIT_SOUSPRODUITS) && !is_null($line->ref))
+				if(getDolGlobalInt('DOC2PROJECT_CREATE_TASK_FOR_VIRTUAL_PRODUCT') && getDolGlobalString('PRODUIT_SOUSPRODUITS') && !is_null($line->ref))
 				{
 
 					$s = new Product($db);
@@ -409,10 +415,10 @@ class Doc2Project {
 					$s->get_sousproduits_arbo();
 					$TProdArbo = $s->get_arbo_each_prod();
                     $PDOdb = new TPDOdb;
-                    if(! empty($conf->global->DOC2PROJECT_CREATE_TASK_FOR_PARENT) || empty($TProdArbo)) {
+                    if(getDolGlobalInt('DOC2PROJECT_CREATE_TASK_FOR_PARENT') || empty($TProdArbo)) {
                         $fk_parent = self::lineToTask($object, $line, $project, $start, $end, 0, true, 0, $story);
 
-                        if($conf->workstationatm->enabled && $conf->global->DOC2PROJECT_WITH_WORKSTATION) {
+                        if( !empty($conf->workstationatm->enabled) && getDolGlobalInt('DOC2PROJECT_WITH_WORKSTATION')) {
                             dol_include_once('/workstationatm/class/workstation.class.php');
 
                             $Tids = TRequeteCore::get_id_from_what_you_want($PDOdb, MAIN_DB_PREFIX."workstation_product", array('fk_product' => $line->fk_product));
@@ -466,7 +472,7 @@ class Doc2Project {
                                     $TTaskAddedList[] = $new_fk_parent;
                                 }
 
-                                if(! empty($conf->workstationatm->enabled) && ! empty($conf->global->DOC2PROJECT_WITH_WORKSTATION)) {
+                                if( !empty($conf->workstationatm->enabled) && getDolGlobalInt('DOC2PROJECT_WITH_WORKSTATION')) {
                                     dol_include_once('/workstationatm/class/workstation.class.php');
 
                                     $Tids = TRequeteCore::get_id_from_what_you_want($PDOdb, MAIN_DB_PREFIX."workstation_product", array('fk_product' => $ss->id));
@@ -502,7 +508,7 @@ class Doc2Project {
 				else{
 				//var_dump($fk_task_parent);exit;
                     $skip = false;
-                    if (!empty($conf->global->DOC2PROJECT_CONVERT_NOMENCLATUREDET_INTO_TASKS) && !empty($conf->nomenclature->enabled))
+                    if (getDolGlobalInt('DOC2PROJECT_CONVERT_NOMENCLATUREDET_INTO_TASKS') && !empty($conf->nomenclature->enabled))
                     {
                         if (!defined('INC_FROM_DOLIBARR')) define('INC_FROM_DOLIBARR', true);
                         dol_include_once('/nomenclature/config.php');
@@ -512,11 +518,11 @@ class Doc2Project {
                         $nomenclature->loadByObjectId($PDOdb, $line->rowid, $object->element, false, $line->fk_product);//get lines of nomenclature
 
 						$qty_ref = $line->qty;
-						if (!empty($conf->global->DOC2PROJECT_USE_NOMENCLATURE_REFERENCE_QTY_AS_LINE_QTY)) $qty_ref = $nomenclature->qty_reference;
+						if (getDolGlobalInt('DOC2PROJECT_USE_NOMENCLATURE_REFERENCE_QTY_AS_LINE_QTY')) $qty_ref = $nomenclature->qty_reference;
                         $detailsNomenclature = $nomenclature->getDetails($qty_ref);
                         // TODO load data for "onlyTNomenclatureWorkstation" or "both"
 
-                        if (!empty($conf->global->DOC2PROJECT_DISABLE_CREATE_TASK_IF_NOMENCLATURE_EXISTS) && !empty($detailsNomenclature)) $skip = true;
+                        if (getDolGlobalInt('DOC2PROJECT_DISABLE_CREATE_TASK_IF_NOMENCLATURE_EXISTS') && !empty($detailsNomenclature)) $skip = true;
                     }
 
                     if (!$skip) $fk_task = self::lineToTask($object,$line,$project,$start,$end,$fk_task_parent,false,0,$story);
@@ -526,15 +532,16 @@ class Doc2Project {
 				    } else {
                     	$TTaskAddedList[] = $fk_task;
 
-                        if (!empty($conf->global->DOC2PROJECT_CONVERT_NOMENCLATUREDET_INTO_TASKS) && !empty($conf->nomenclature->enabled))
+                        if (getDolGlobalString('DOC2PROJECT_CONVERT_NOMENCLATUREDET_INTO_TASKS') && !empty($conf->nomenclature->enabled))
                         {
-                            if (in_array($conf->global->DOC2PROJECT_CONVERT_NOMENCLATUREDET_INTO_TASKS, array('onlyTNomenclatureDet', 'both')))
+                            if (in_array(getDolGlobalString('DOC2PROJECT_CONVERT_NOMENCLATUREDET_INTO_TASKS'), array('onlyTNomenclatureDet', 'both')))
                             {
                                 self::nomenclaturedetToTask($detailsNomenclature, $line, $object, $project, $start, $end, ($skip ? $fk_task_parent : $fk_task), $story);
                             }
-                            if (in_array($conf->global->DOC2PROJECT_CONVERT_NOMENCLATUREDET_INTO_TASKS, array('onlyTNomenclatureWorkstation', 'both')))
+                            if (in_array(getDolGlobalString('DOC2PROJECT_CONVERT_NOMENCLATUREDET_INTO_TASKS'), array('onlyTNomenclatureWorkstation', 'both')))
                             {
                                 // TODO ... create project task from TNomenclatureWorkstation
+                                // EDIT: c'est toujours d'actualité ce truc ?
                             }
                         }
                     }
@@ -542,7 +549,7 @@ class Doc2Project {
 			}
 		}
 
-		if($conf->global->DOC2PROJECT_CREATE_SPRINT_FROM_TITLE && $conf->subtotal->enabled)
+		if(getDolGlobalInt('DOC2PROJECT_CREATE_SPRINT_FROM_TITLE') && !empty($conf->subtotal->enabled))
 		{
 			$project->statut=0;
 			$project->array_options['options_stories'] = implode(',', $TStory);
@@ -550,9 +557,12 @@ class Doc2Project {
 		}
 
 		// recalcule les date des tâches et du projet en fonction de la vélocité
-		if(!empty($conf->global->DOC2PROJECT_TASK_RECALC_DATE_BY_VELOCITY)){
-			self::resetDateTaskForProjectFromTaskList($project, $conf->global->DOC2PROJECT_NB_HOURS_PER_DAY * 3600, $TTaskAddedList);
+		if(getDolGlobalInt('DOC2PROJECT_TASK_RECALC_DATE_BY_VELOCITY')){
+			self::resetDateTaskForProjectFromTaskList($project, getDolGlobalInt('DOC2PROJECT_NB_HOURS_PER_DAY') * 3600, $TTaskAddedList);
 		}
+
+        $TremonterDesInfosCestBien['linesActuallyAdded'] = count($TTaskAddedList);
+        return $TremonterDesInfosCestBien;
 	}
 
 	/**
@@ -667,7 +677,7 @@ class Doc2Project {
 	    }
 
 	    $story_k = self::getStoryK($story);
-	    if (!empty($conf->global->DOC2PROJECT_GROUP_TASKS_BY_SPRINT) && !empty($story) && !empty($story_k)) {
+	    if (getDolGlobalInt('DOC2PROJECT_GROUP_TASKS_BY_SPRINT') && !empty($story) && !empty($story_k)) {
 	        $filters[] = "t.story_k = '".intval(self::getStoryK($story))."'";
 	    }
 	    $sql.= implode(' AND ', $filters);
@@ -718,7 +728,7 @@ class Doc2Project {
 
 		    $story_k = self::getStoryK($story);
 
-		    $groupTask = (!empty($conf->global->DOC2PROJECT_GROUP_TASKS) || !empty($conf->global->DOC2PROJECT_GROUP_TASKS_BY_SPRINT))?true:false;
+		    $groupTask = (getDolGlobalInt('DOC2PROJECT_GROUP_TASKS') || getDolGlobalInt('DOC2PROJECT_GROUP_TASKS_BY_SPRINT'))?true:false;
 		    if($groupTask){
 		        // search previous created task
 		        $previousTask = self::searchTask($fk_project,$label, $story);
@@ -788,7 +798,7 @@ class Doc2Project {
 				$parameters = array('db' => &$db, 'fk_project' => $fk_project, 'ref' => $ref, 'label' => $label, 'desc' => $desc, 'start' => $start, 'end' => $end, 'fk_task_parent' => $fk_task_parent, 'planned_workload' => $planned_workload, 'total_ht' => $total_ht, 'fk_workstation' => $fk_workstation, 'line' => $line);
 				$reshook = $hookmanager->executeHooks('addMoreParams', $parameters, $task, $action);
 				$task->update($user);
-				if($conf->global->DOC2PROJECT_CREATE_SPRINT_FROM_TITLE && !is_null($story_k)){
+				if(getDolGlobalInt('DOC2PROJECT_CREATE_SPRINT_FROM_TITLE') && !is_null($story_k)){
 					Doc2Project::setStoryK($db, $task->id, $story_k);
 				}
 
@@ -825,7 +835,7 @@ class Doc2Project {
 				$r = $task->create($user);
 
 				if ($r > 0) {
-					if(!is_null($story_k) && (! empty($conf->global->DOC2PROJECT_CREATE_SPRINT_FROM_TITLE) || ! empty($conf->global->DOC2PROJECT_USE_SPECIFIC_STORY_TO_CREATE_TASKS))){
+					if(!is_null($story_k) && (getDolGlobalInt('DOC2PROJECT_CREATE_SPRINT_FROM_TITLE') || getDolGlobalInt('DOC2PROJECT_USE_SPECIFIC_STORY_TO_CREATE_TASKS'))){
 						Doc2Project::setStoryK($db, $r, $story_k);
 					}
 					if(! empty($fk_origin)) {
@@ -909,7 +919,7 @@ class Doc2Project {
 	public static function getStoryK($story) {
 		global $conf, $TStory;
 
-		if(! empty($story) && (! empty($conf->global->DOC2PROJECT_CREATE_SPRINT_FROM_TITLE) || ! empty($conf->global->DOC2PROJECT_USE_SPECIFIC_STORY_TO_CREATE_TASKS))) {
+		if(! empty($story) && (getDolGlobalInt('DOC2PROJECT_CREATE_SPRINT_FROM_TITLE') || getDolGlobalInt('DOC2PROJECT_USE_SPECIFIC_STORY_TO_CREATE_TASKS'))) {
 			$key = array_search($story, $TStory);
 
 			if ($key !== false) return $key; // décalage suite
@@ -921,7 +931,7 @@ class Doc2Project {
 	public static function getStoryL($story_k) {
 	    global $conf, $TStory;
 
-	    if($conf->global->DOC2PROJECT_CREATE_SPRINT_FROM_TITLE && !empty($story_k)) {
+	    if(getDolGlobalInt('DOC2PROJECT_CREATE_SPRINT_FROM_TITLE') && !empty($story_k)) {
 	        if(isset($TStory[$story_k-1])) return $TStory[$story_k-1];
 	    }
 
@@ -1011,7 +1021,7 @@ class Doc2Project {
 		}
 
 		// RECUPERATION DES WORKSTATIONS
-		if(!empty($conf->workstationatm->enabled) && !empty($conf->global->DOC2PROJECT_WITH_WORKSTATION) && !empty($curentNomenclature) )
+		if(!empty($conf->workstationatm->enabled) && getDolGlobalInt('DOC2PROJECT_WITH_WORKSTATION') && !empty($curentNomenclature) )
 		{
 
 		    dol_include_once('/workstationatm/class/workstation.class.php');
@@ -1020,8 +1030,8 @@ class Doc2Project {
 		        foreach ($curentNomenclature->TNomenclatureWorkstation as &$wsn)
 		        {
 		            $defaultref=self::getNewDefaultTaskRef($line);
-		            if(!empty($conf->global->DOC2PROJECT_TASK_REF_PREFIX)) {
-		                $defaultref = $conf->global->DOC2PROJECT_TASK_REF_PREFIX.$line->rowid.$wsn->workstation->rowid;
+		            if(getDolGlobalString('DOC2PROJECT_TASK_REF_PREFIX')) {
+		                $defaultref = getDolGlobalString('DOC2PROJECT_TASK_REF_PREFIX') . $line->rowid.$wsn->workstation->rowid;
 		            }
 		            $fk_task_parent = 0;
 		            $fk_workstation = $wsn->workstation->rowid;
@@ -1109,15 +1119,14 @@ class Doc2Project {
     {
         global $conf;
         $numberingModuleClass = 'mod_task_simple'; // default
-        if (empty($conf->global->PROJECT_TASK_ADDON)) {
+        if (empty(getDolGlobalString('PROJECT_TASK_ADDON'))) {
             return new $numberingModuleClass;
         }
         $projectTaskAddonPath = DOL_DOCUMENT_ROOT
-            . '/core/modules/project/task/'
-            . $conf->global->PROJECT_TASK_ADDON . '.php';
+            . '/core/modules/project/task/' . getDolGlobalString('PROJECT_TASK_ADDON') . '.php';
         if (is_readable($projectTaskAddonPath)) {
             require_once $projectTaskAddonPath;
-            $numberingModuleClass = $conf->global->PROJECT_TASK_ADDON;
+            $numberingModuleClass = getDolGlobalString('PROJECT_TASK_ADDON');
             return new $numberingModuleClass;
         } else {
             setEventMessages('Unable to read ' . $projectTaskAddonPath . '; using default numbering scheme.');
