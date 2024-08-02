@@ -58,7 +58,7 @@ class modDoc2Project extends DolibarrModules
 		// Module description, used if translation string 'ModuleXXXDesc' not found (where XXX is value of numeric property 'numero' of module)
 		$this->description = "Convert a proposal or customer order to a project";
 		// Possible values for version are: 'development', 'experimental', 'dolibarr' or version
-		$this->version = '3.2.0';
+		$this->version = '3.5.0';
 		// Url to the file with your last numberversion of this module
 		require_once __DIR__ . '/../../class/techatm.class.php';
 		$this->url_last_version = \doc2project\TechATM::getLastModuleVersionUrl($this);
@@ -107,8 +107,8 @@ class modDoc2Project extends DolibarrModules
 		$this->depends = array('modProjet', 'modAbricot');		// List of modules id that must be enabled if this module is enabled
 		$this->requiredby = array();	// List of modules id to disable if this one is disabled
 		$this->conflictwith = array();	// List of modules id this module is in conflict with
-		$this->phpmin = array(5,0);					// Minimum version of PHP required by module
-		$this->need_dolibarr_version = array(3,5);	// Minimum version of Dolibarr required by module
+		$this->phpmin = array(7,0);					// Minimum version of PHP required by module
+		$this->need_dolibarr_version = array(16,0);	// Minimum version of Dolibarr required by module
 		$this->langfiles = array("doc2project@doc2project");
 
 		// Constants
@@ -122,7 +122,8 @@ class modDoc2Project extends DolibarrModules
 			array('DOC2PROJECT_AUTO_ON_PROPOSAL_CLOSE','chaine','0','Launch function when proposal is closed signed',1),
 			array('DOC2PROJECT_AUTO_ON_ORDER_VALIDATE','chaine','0','Launch function when order is validated',1),
 			array('DOC2PROJECT_NB_HOURS_PER_DAY','chaine','7','Used to convert service duration in hours',1),
-			array('DOC2PROJECT_TASK_REF_PREFIX','chaine','TA','Prefix for task reference, will be used with proposal or order line ID to be unique',1)
+			array('DOC2PROJECT_TASK_REF_PREFIX','chaine','TA','Prefix for task reference, will be used with proposal or order line ID to be unique',1),
+			array('DOC2PROJECT_ADD_USAGE_TASK_ON_PROJECT','chaine','0','Check the box to track tasks and time spent on automatic project creation',1)
 
 		);
 
@@ -153,7 +154,7 @@ class modDoc2Project extends DolibarrModules
 		$this->tabs = array();
 
 		// Dictionaries
-		if (! isset($conf->doc2project->enabled))
+		if (!isModEnabled('doc2project'))
 		{
 			$conf->doc2project=new stdClass();
 			$conf->doc2project->enabled=0;
@@ -215,8 +216,8 @@ class modDoc2Project extends DolibarrModules
 								'url'=>'/doc2project/rapport.php',
 								'langs'=>'mylangfile@doc2project',	        // Lang file to use (without .lang) by module. File must be in langs/code_CODE/ directory.
 								'position'=>166,
-								'enabled'=>'$conf->doc2project->enabled',	// Define condition to show or hide menu entry. Use '$conf->doc2project->enabled' if entry must be visible if module is enabled.
-								'perms'=>'$user->rights->doc2project->read',			                // Use 'perms'=>'$user->rights->doc2project->level1->level2' if you want your menu with a permission rules
+								'enabled'=>'isModEnabled("doc2project")',	// Define condition to show or hide menu entry. Use '$conf->doc2project->enabled' if entry must be visible if module is enabled.
+								'perms'=>'$user->hasRight(\'doc2project\',\'read\')',			                // Use 'perms'=>'$user->rights->doc2project->level1->level2' if you want your menu with a permission rules
 								'target'=>'',
 								'user'=>2);				                // 0=Menu for internal users, 1=external users, 2=both
 		 $r++;
@@ -229,8 +230,8 @@ class modDoc2Project extends DolibarrModules
 								'url'=>'/doc2project/rapport.php',
 								'langs'=>'mylangfile@doc2project',	        // Lang file to use (without .lang) by module. File must be in langs/code_CODE/ directory.
 								'position'=>167,
-								'enabled'=>'$conf->doc2project->enabled',	// Define condition to show or hide menu entry. Use '$conf->doc2project->enabled' if entry must be visible if module is enabled.
-								'perms'=>'$user->rights->doc2project->read',			                // Use 'perms'=>'$user->rights->doc2project->level1->level2' if you want your menu with a permission rules
+								'enabled'=>'isModEnabled("doc2project")',	// Define condition to show or hide menu entry. Use '$conf->doc2project->enabled' if entry must be visible if module is enabled.
+								'perms'=> '$user->hasRight(\'doc2project\',\'read\')',			                // Use 'perms'=>'$user->rights->doc2project->level1->level2' if you want your menu with a permission rules
 								'target'=>'',
 								'user'=>2);				                // 0=Menu for internal users, 1=external users, 2=both
 		 $r++;
@@ -296,11 +297,32 @@ class modDoc2Project extends DolibarrModules
 		 	$this->db->query('ALTER TABLE '.MAIN_DB_PREFIX.'projet_task_time ADD thm DOUBLE NOT NULL DEFAULT \'0\'');
 		}
 
-		$res = $extrafields->addExtraField('soldprice', $langs->trans('SoldPrice'), 'double', 0, '', 'projet_task');
+		$res = $extrafields->addExtraField('soldprice', $langs->trans('SoldPrice'), 'double', 0, '24,4', 'projet_task');
 
 		$extrafields=new ExtraFields($this->db);
 		$param = array('options'=>array(1=>"Commercial", 2=>"Developpement", 3=>"Direction de projet", 4=>"Comptabilité"));
 		$res = $extrafields->addExtraField('categorie', 'Catégorie', 'select', 0, 0, 'projet', 0, '', '', $param);
+
+		//*********************************
+		// ******* MISE A JOUR BDD ********
+		//*********************************
+
+		if ($this->needUpdate('3.2.1')) {
+			/** Mise à jour de la structure de la table llx_projet_task_extrafields **/
+			$sqlUpdate = 'ALTER TABLE '.MAIN_DB_PREFIX.'projet_task_extrafields MODIFY COLUMN soldprice DOUBLE (24,4)';
+			$this->db->query($sqlUpdate);
+
+			/** Mise à jour de la colonne size de la table llx_extrafields **/
+			$sqlUpdate = "UPDATE ".MAIN_DB_PREFIX."extrafields SET size = '24,4' WHERE name = 'soldprice' AND elementtype = 'projet_task'";
+			$this->db->query($sqlUpdate);
+		}
+
+		//*************************************
+		// ******* FIN MISE A JOUR BDD ********
+		//*************************************
+
+		// Stock le numéro de version installé
+		dolibarr_set_const($this->db, 'DOC2PROJECT_MOD_LAST_RELOAD_VERSION', $this->version, 'chaine', 0, '', 0);
 
 		return $this->_init($sql, $options);
 	}
@@ -318,6 +340,25 @@ class modDoc2Project extends DolibarrModules
 		$sql = array();
 
 		return $this->_remove($sql, $options);
+	}
+
+	/**
+	 * Compare
+	 *
+	 * @param string $targetVersion numéro de version pour lequel il faut faire la comparaison
+	 * @return bool
+	 */
+	public function needUpdate($targetVersion){
+		global $conf;
+		if (empty(getDolGlobalString('DOC2PROJECT_MOD_LAST_RELOAD_VERSION'))) {
+			return true;
+		}
+
+		if(versioncompare(explode('.',$targetVersion), explode('.', getDolGlobalString('DOC2PROJECT_MOD_LAST_RELOAD_VERSION')))>0){
+			return true;
+		}
+
+		return false;
 	}
 
 }

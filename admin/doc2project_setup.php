@@ -95,7 +95,7 @@ dol_fiche_head(
     "project"
 );
 
-$ok = $conf->propal->enabled || $conf->commande->enabled;
+$ok = isModEnabled('propal') || isModEnabled('commande');
 
 $abricotIsPresent = dol_buildpath('abricot/langs/fr_FR/abricot.lang');
 if(empty($abricotIsPresent) || !file_exists($abricotIsPresent)){
@@ -117,12 +117,12 @@ if($ok) {
 
 
 	// Display convert button on proposal
-	if($conf->propal->enabled) {
+	if(isModEnabled('propal')) {
 	    _print_on_off('DOC2PROJECT_DISPLAY_ON_PROPOSAL', $langs->trans('DisplayOnProposal'));
 	}
 
 	// Display convert button on order
-	if($conf->commande->enabled) {
+	if(isModEnabled('commande')) {
 	    _print_on_off('DOC2PROJECT_DISPLAY_ON_ORDER', $langs->trans('DisplayOnOrder'));
 	}
 
@@ -150,6 +150,13 @@ if($ok) {
 
 	// Clôturer le projet sur la validation d'une expédition
 	_print_on_off('DOC2PROJECT_CLOTURE_PROJECT_ON_VALID_EXPEDITION', $langs->trans('Doc2ProjectClotureProjectOnValidateExpedition'));
+
+	// Cloner les attributs suppémentaires du document source sur le projet
+	_print_on_off('DOC2PROJECT_CLONE_EXTRAFIELDS', $langs->trans('Doc2ProjectCloneExtrafields'));
+
+	// Cocher la case pour suivre les tâches et le temps passé à la création auto d'un projet
+	_print_on_off('DOC2PROJECT_ADD_USAGE_TASK_ON_PROJECT', $langs->trans('Doc2ProjectAddUsageTaskOnProject'));
+
 
 	/**
 	 * TASK PARAMETERS
@@ -181,6 +188,8 @@ if($ok) {
 	// Coupler l'utilisation du module à "Nomenclature" et "Workstation"
 	_print_on_off('DOC2PROJECT_USE_NOMENCLATURE_AND_WORKSTATION', $langs->trans('Doc2ProjectUseNomenclatureAndWorkstation'));
 
+	_print_on_off('DOC2PROJECT_USE_QTY_OF_NOMENCLATURE', $langs->trans('Doc2ProjectUseQtyOfNomenclature'));
+
 	// Autoriser la création de tâche pour une ligne libre
 	_print_on_off('DOC2PROJECT_ALLOW_FREE_LINE', $langs->trans('Doc2ProjectAllowFreeLine'));
 
@@ -195,12 +204,12 @@ if($ok) {
 
 
 	// Créer les sprints en fonction des lignes titres contenus dans le document
-	if($conf->subtotal->enabled && $conf->scrumboard->enabled){
+	if(isModEnabled('subtotal') && isModEnabled('scrumboard')){
 	    _print_on_off('DOC2PROJECT_CREATE_SPRINT_FROM_TITLE', $langs->trans('Doc2ProjectCreateSprintFromTitle'));
 	}
 
 	// Créer autant de tâches qu'il y a de postes de travail associés au produit/service
-	if($conf->workstationatm->enabled){
+	if(isModEnabled('workstationatm')){
 	    _print_on_off('DOC2PROJECT_WITH_WORKSTATION', $langs->trans('Doc2projectWithWorkstation'), '', $langs->trans('Doc2projectWithWorkstation'));
 	}
 
@@ -231,6 +240,8 @@ if($ok) {
 
 	_print_on_off('DOC2PROJECT_USE_SPECIFIC_STORY_TO_CREATE_TASKS', $langs->trans('Doc2ProjectUseSpecificStoryToCreateTasks'));
 
+    $newToken = function_exists('newToken') ? newToken() : $_SESSION['newtoken'];
+
 
     $var=!$var;
     print '<tr '.$bc[$var].'>';
@@ -238,7 +249,7 @@ if($ok) {
     print '<td align="center" width="20">&nbsp;</td>';
     print '<td align="right" width="300">';
     print '<form method="POST" action="'.$_SERVER['PHP_SELF'].'">';
-    print '<input type="hidden" name="token" value="'.$_SESSION['newtoken'].'">';
+    print '<input type="hidden" name="token" value="'.$newToken.'">';
     print '<input type="hidden" name="action" value="set_DOC2PROJECT_CONVERT_NOMENCLATUREDET_INTO_TASKS">';
     $TVal = array(
         '' => ''
@@ -246,7 +257,7 @@ if($ok) {
         ,'onlyTNomenclatureWorkstation' => $langs->trans('d2p_onlyTNomenclatureWorkstation')
         ,'both' => $langs->trans('d2p_Both')
     );
-    print Form::selectarray('DOC2PROJECT_CONVERT_NOMENCLATUREDET_INTO_TASKS', $TVal, $conf->global->DOC2PROJECT_CONVERT_NOMENCLATUREDET_INTO_TASKS);
+    print Form::selectarray('DOC2PROJECT_CONVERT_NOMENCLATUREDET_INTO_TASKS', $TVal, getDolGlobalString('DOC2PROJECT_CONVERT_NOMENCLATUREDET_INTO_TASKS'));
     print '<input type="submit" class="button" value="'.$langs->trans("Modify").'">';
     print '</form>';
     print '</td></tr>';
@@ -279,8 +290,9 @@ function _print_title($title="")
 
 function _print_on_off($confkey, $title = false, $desc ='', $help = false)
 {
-    global $var, $bc, $langs, $conf;
+    global $var, $bc, $langs, $conf, $db;
     $var=!$var;
+    $newToken = function_exists('newToken') ? newToken() : $_SESSION['newtoken'];
 
     $form=new Form($db);
 
@@ -302,7 +314,7 @@ function _print_on_off($confkey, $title = false, $desc ='', $help = false)
     print '<td align="center" width="20">&nbsp;</td>';
     print '<td align="right" width="300">';
     print '<form method="POST" action="'.$_SERVER['PHP_SELF'].'">';
-    print '<input type="hidden" name="token" value="'.$_SESSION['newtoken'].'">';
+    print '<input type="hidden" name="token" value="'.$newToken.'">';
     print '<input type="hidden" name="action" value="set_'.$confkey.'">';
     print ajax_constantonoff($confkey);
     print '</form>';
@@ -313,6 +325,7 @@ function _print_input_form_part($confkey, $title = false, $desc ='', $metas = ar
 {
     global $var, $bc, $langs, $conf, $db;
     $var=!$var;
+    $newToken = function_exists('newToken') ? newToken() : $_SESSION['newtoken'];
 
     $form=new Form($db);
 
@@ -322,7 +335,7 @@ function _print_input_form_part($confkey, $title = false, $desc ='', $metas = ar
 
     if($type!='textarea'){
         $defaultMetas['type']   = 'text';
-        $defaultMetas['value']  = $conf->global->{$confkey};
+        $defaultMetas['value']  = getDolGlobalString($confkey) ?? getDolGlobalInt($confkey);
     }
 
 
@@ -352,10 +365,10 @@ function _print_input_form_part($confkey, $title = false, $desc ='', $metas = ar
     print '<td align="center" width="20">&nbsp;</td>';
     print '<td align="right" width="300">';
     print '<form method="POST" action="'.$_SERVER['PHP_SELF'].'">';
-    print '<input type="hidden" name="token" value="'.$_SESSION['newtoken'].'">';
+    print '<input type="hidden" name="token" value="'.$newToken.'">';
     print '<input type="hidden" name="action" value="set_'.$confkey.'">';
     if($type=='textarea'){
-        print '<textarea '.$metascompil.'  >'.dol_htmlentities($conf->global->{$confkey}).'</textarea>';
+        print '<textarea '.$metascompil.'  >'.dol_htmlentities(getDolGlobalString($confkey)).'</textarea>';
     }
     else {
         print '<input '.$metascompil.'  />';

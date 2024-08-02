@@ -10,6 +10,7 @@ CreateProjectAndTasks = Créer projet et tâches
 CreateTasksInProject = Créer les tâches dans le projet associé
 DocConverted = convertie
 AbricotNeeded = Le module Abricot est nécessaire.
+Doc2ProjectUseQtyOfNomenclature=Lors de la conversion d'une nomenclature en tâche, prendre uniquement la quantité de la nomenclature sans multiplier par la quantité de la ligne du document
 
 # SETUP
 DisplayOnProposal = Afficher le bouton de conversion sur la fiche proposition
@@ -19,8 +20,10 @@ NbHoursPerDay = Nombre d'heures journalier
 ModuleNeedProposalOrOrderModule = Le module proposition commerciale ou commande client doit être activé pour pouvoir utiliser ce module
 Doc2ProjectValidateProjectOnValidateOrder=Créer et valider un projet sur la validation d'une commande client
 Doc2ProjectClotureProjectOnValidateExpedition=Clôturer le projet sur la validation d'une expédition
+Doc2ProjectCloneExtrafields=Copier les attributs supplémentaires du document d'origine sur le projet
 Doc2ProjectCreateTaskForVirtualProduct=Créer autant de tâche que de sous-services associés au service parent
-Doc2ProjectCreateTaskForParent=Créer la le service initial en tant que tâche parente des sous-produits associés
+Doc2ProjectCreateTaskForParent=Créer le service initial en tant que tâche parente des sous-produits associés
+Doc2ProjectAddUsageTaskOnProject=Cocher la case "Suivre des tâches ou du temps passé" lors de la création automatique d'un projet
 Doc2projectWithWorkstation=Créer autant de tâches qu'il y a de postes de travail associés au produit/service
 Doc2ProjectAutoAffectProjectLeader=Affecter en tant que chef de projet l'utilisateur créant le projet depuis la propale, commande.
 DOC2PROJECT_TITLE_PROJECT=Titre du projet créé
@@ -30,7 +33,7 @@ Doc2ProjectCreateSprintFromTitle=Créer les sprints en fonction des lignes titre
 DOC2PROJECT_TASK_NAME=Label à appliquer lors de la création des tâches
 DOC2PROJECT_TASK_NAME_HELP=Clés de substitutions :<br />- {product_ref} => référence du produit<br />- {product_label} => libellé de la ligne
 DOC2PROJECT_VALIDATE_CREATED_PROJECT=Valider automatiquement les projets créés depuis un devis ou une commande
-DOC2PROJECT_DISPLAY_LINKED_TASKS=Afficher sur les lignes de document les tâches qui leur sont liées (uniquement sur la fiche du document validé)
+DOC2PROJECT_DISPLAY_LINKED_TASKS=Afficher sur les lignes de document les tâches qui leur sont liées (uniquement sur la fiche du document validé, non fonctionnel avel le module nomenclature/ouvrage  )
 DOC2PROJECT_TASK_RECALC_DATE_BY_VELOCITY = Lors de l'ajout des tâches au projet, prendre en compte la vélocité (nombre d'heures journalier) dans la planification
 Doc2ProjectUseSpecificStoryToCreateTasks = Permet de passer un libellé de sprint pour spécifier un sprint dans lequel créer les tâches
 Doc2ProjectDocumentsSourceParameters = Paramètres liés aux documents source
@@ -85,3 +88,9 @@ DOC2PROJECT_ALWAYS_ADD_THIRDPARTY_PROJECT_TITLE_help=Par défaut si le document 
 Doc2ProjectGroupTasksBySprint=Grouper les tâches par nom dans un sprint
 Doc2ProjectGroupTasks=Grouper les tâches par nom
 Doc2ProjectPrevueBeforeConvert=prévisualisation et selection des lignes avant l'import
+
+Doc2ProjectErrorUpdateProject=Erreur à la sauvegarde du projet
+Doc2ProjectTaskCreationMessage_mesgs=%s lignes converties en tâches.
+Doc2ProjectTaskCreationMessage_warnings=%s lignes ignorées à la conversion en tâches.
+Doc2ProjectTaskCreationMessage_errors=erreur à la conversion de %s lignes en tâches.
+Doc2ProjectTaskCreationMessage_NoTasksCreated=Aucune ligne convertie en tâche.

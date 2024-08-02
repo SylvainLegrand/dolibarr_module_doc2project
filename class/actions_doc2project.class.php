@@ -1,26 +1,33 @@
 <?php
+/**
+* SPDX-License-Identifier: GPL-3.0-or-later
+* This file is part of Dolibarr module Doc2Project
+*/
 
-class ActionsDoc2Project
+
+require_once __DIR__ . '/../backport/v19/core/class/commonhookactions.class.php';
+
+class ActionsDoc2Project extends doc2project\RetroCompatCommonHookActions
 {
 	// Affichage du bouton d'action => 3.6 uniquement.....
 	function addMoreActionsButtons($parameters, &$object, &$action, $hookmanager)
 	{
 		global $conf,$langs,$db,$user;
 
-		if($user->rights->projet->all->creer &&
-			((in_array('propalcard',explode(':',$parameters['context'])) && $conf->global->DOC2PROJECT_DISPLAY_ON_PROPOSAL && $object->statut == 2)
-			|| (in_array('ordercard',explode(':',$parameters['context'])) && $conf->global->DOC2PROJECT_DISPLAY_ON_ORDER && $object->statut == 1))
+		if($user->hasRight('projet', 'all', 'creer') &&
+			((in_array('propalcard',explode(':',$parameters['context'])) && getDolGlobalInt('DOC2PROJECT_DISPLAY_ON_PROPOSAL') && $object->statut == 2)
+			|| (in_array('ordercard',explode(':',$parameters['context'])) && getDolGlobalInt('DOC2PROJECT_DISPLAY_ON_ORDER') && $object->statut == 1))
 		)
 		{
 			if((float)DOL_VERSION>=3.6) {
 				$langs->load('doc2project@doc2project');
-				$link = $_SERVER["PHP_SELF"] . '?id=' . $object->id . '&action=create_project&from=doc2project&type='.$object->element;
-				if(!empty($conf->global->DOC2PROJECT_PREVUE_BEFORE_CONVERT)){ $link = '#'; }
+				$link = $_SERVER["PHP_SELF"] . '?id=' . $object->id . '&action=create_project&from=doc2project&type=' .$object->element. '&token='.newToken();
+				if(getDolGlobalInt('DOC2PROJECT_PREVUE_BEFORE_CONVERT')){ $link = '#'; }
 				$label = empty($object->fk_project) ? $langs->trans('CreateProjectAndTasks') : $langs->trans('CreateTasksInProject');
 				print '<div class="inline-block divButAction"><a class="butAction" id="doc2project_create_project" href="' . $link . '">' . $label . '</a></div>';
 
 				// afficher les tâches liées aux lignes de document
-				if (!empty($conf->global->DOC2PROJECT_DISPLAY_LINKED_TASKS))
+				if (getDolGlobalInt('DOC2PROJECT_DISPLAY_LINKED_TASKS'))
 				{
 					$jsonObjectData =array();
 
@@ -47,7 +54,7 @@ class ActionsDoc2Project
 								if($( this ).hasClass( "liste_titre" ))
 								{
 									// PARTIE TITRE
-									$('<td class="linecoltasks" style="width: 100px"><?php print $langs->transnoentities('LinkedTasks'); ?></td>').insertBefore($( this ).find("td.linecoldescription"));
+									$('<td class="linecoltasks" style="width: 100px"><?php print $langs->transnoentities('LinkedTasks'); ?></td>').insertBefore($( this ).find("th.linecoldescription,td.linecoldescription"));
 								}
 								else if($( this ).data( "product_type" ) == "9"){
 									$( this ).find("td[colspan]:first").attr('colspan',    parseInt($( this ).find("td[colspan]:first").attr('colspan')) + 1  );
@@ -83,7 +90,7 @@ class ActionsDoc2Project
 
 				}
 
-				if(!empty($conf->global->DOC2PROJECT_PREVUE_BEFORE_CONVERT)){
+				if(getDolGlobalInt('DOC2PROJECT_PREVUE_BEFORE_CONVERT')){
 				    // Print la partie JS nécessaire à la popin
 				    dol_include_once('/doc2project/lib/doc2project.lib.php');
 				    printJSPopinBeforeAddTasksInProject($parameters, $object, $action, $hookmanager,$label);
@@ -97,14 +104,14 @@ class ActionsDoc2Project
 	function formObjectOptions($parameters, &$object, &$action, $hookmanager) {
 
 		global $langs,$db,$user,$conf;
-		if($user->rights->projet->all->creer &&
-			((in_array('propalcard',explode(':',$parameters['context'])) && $conf->global->DOC2PROJECT_DISPLAY_ON_PROPOSAL && $object->statut == 2)
-			|| (in_array('ordercard',explode(':',$parameters['context'])) && $conf->global->DOC2PROJECT_DISPLAY_ON_ORDER && $object->statut == 1))
+		if($user->hasRight('projet', 'all', 'creer') &&
+			((in_array('propalcard',explode(':',$parameters['context'])) && getDolGlobalInt('DOC2PROJECT_DISPLAY_ON_PROPOSAL') && $object->statut == 2)
+			|| (in_array('ordercard',explode(':',$parameters['context'])) && getDolGlobalInt('DOC2PROJECT_DISPLAY_ON_ORDER') && $object->statut == 1))
 			&& (float)DOL_VERSION < 3.6
 		)
 		{
 			$langs->load('doc2project@doc2project');
-			$link = $_SERVER["PHP_SELF"] . '?id=' . $object->id . '&action=create_project&from=doc2project&type='.$object->element;
+			$link = $_SERVER["PHP_SELF"] . '?id=' . $object->id . '&action=create_project&from=doc2project&type='.$object->element. '&token='.newToken();
 			$label = empty($object->fk_project) ? $langs->trans('CreateProjectAndTasks') : $langs->trans('CreateTasksInProject');
 			?>
 			<script type="text/javascript">
@@ -145,7 +152,7 @@ class ActionsDoc2Project
 				}
 			}
 
-			if ($conf->ndfp->enabled)
+			if (!empty(isModEnabled('ndfp')))
 			{
 				$sql = "SELECT total_ht FROM " . MAIN_DB_PREFIX . "ndfp WHERE fk_project=" . $object->id;
 				$res=$db->query($sql);
@@ -156,9 +163,19 @@ class ActionsDoc2Project
 			}
 
 
-			$resultset = $db->query("SELECT SUM(tt.task_duration) as duration_effective, SUM(tt.thm * tt.task_duration/3600) as costprice
-			FROM ".MAIN_DB_PREFIX."projet_task_time tt LEFT JOIN ".MAIN_DB_PREFIX."projet_task t ON (t.rowid=tt.fk_task)
-			WHERE t.fk_projet=".$object->id);
+			if (version_compare(DOL_VERSION, '18.0.0' , '<'))
+			{
+				$sql = "SELECT SUM(tt.task_duration) as duration_effective, SUM(tt.thm * tt.task_duration/3600) as costprice";
+				$sql.= " FROM ".MAIN_DB_PREFIX."projet_task_time tt LEFT JOIN ".MAIN_DB_PREFIX."projet_task t ON (t.rowid=tt.fk_task)";
+			}
+			else
+			{
+				$sql = "SELECT SUM(tt.element_duration) as duration_effective, SUM(tt.thm * tt.element_duration/3600) as costprice";
+				$sql.= " FROM ".MAIN_DB_PREFIX."element_time tt LEFT JOIN ".MAIN_DB_PREFIX."projet_task t ON (t.rowid=tt.fk_element AND tt.elementtype = 'task')";
+			}
+			$sql.= " WHERE t.fk_projet=".$object->id;
+
+			$resultset = $db->query($sql);
 			$obj=$db->fetch_object($resultset);
 
 
@@ -167,7 +184,7 @@ class ActionsDoc2Project
 			?>
 			<tr>
 				<td><?php echo $langs->trans('DurationEffective'); ?> (Jours Homme)</td>
-				<td><?php echo convertSecondToTime( $obj->duration_effective,'all',$conf->global->DOC2PROJECT_NB_HOURS_PER_DAY*60*60) ?></td>
+				<td><?php echo convertSecondToTime( $obj->duration_effective,'all',getDolGlobalInt('DOC2PROJECT_NB_HOURS_PER_DAY') * 60 * 60) ?></td>
 
 			</tr>
 			<tr>
@@ -199,7 +216,18 @@ class ActionsDoc2Project
 			//$object->duration_effective souvent faux :-/ recalcule en requête
 			if(!empty($object->id))
 			{
-				$resultset = $db->query("SELECT SUM(task_duration) as duration_effective, SUM(thm * task_duration/3600) as costprice  FROM ".MAIN_DB_PREFIX."projet_task_time WHERE fk_task=".$object->id);
+				if (version_compare(DOL_VERSION, '18.0.0', '<'))
+				{
+					$sql = "SELECT SUM(task_duration) as duration_effective, SUM(thm * task_duration/3600) as costprice";
+					$sql.= " FROM ".MAIN_DB_PREFIX."projet_task_time WHERE fk_task=".$object->id;
+				}
+				else
+				{
+					$sql = "SELECT SUM(element_duration) as duration_effective, SUM(thm * element_duration/3600) as costprice";
+					$sql.= " FROM ".MAIN_DB_PREFIX."element_time WHERE elementtype = 'task' AND fk_element = ".$object->id;
+				}
+
+				$resultset = $db->query($sql);
 				$obj=$db->fetch_object($resultset);
 
 				?>
@@ -259,14 +287,14 @@ class ActionsDoc2Project
 	{
 		global $conf,$langs,$db,$user;
 
-		if($user->rights->projet->all->creer && $action == 'create_project' &&
+		if($user->hasRight('projet', 'all', 'creer') && $action == 'create_project' &&
 			((in_array('propalcard',explode(':',$parameters['context'])) && $object->statut == 2)
 			|| (in_array('ordercard',explode(':',$parameters['context'])) && $object->statut == 1))
 		)
 		{
 			$langs->load('doc2project@doc2project');
 
-			define('INC_FROM_DOLIBARR', true);
+			if(!defined('INC_FROM_DOLIBARR')) define('INC_FROM_DOLIBARR', true);
 			dol_include_once('/doc2project/config.php');
 			dol_include_once('/projet/class/project.class.php');
 			dol_include_once('/projet/class/task.class.php');
@@ -282,17 +310,38 @@ class ActionsDoc2Project
 				$start = strtotime('today'); // La 1ère tâche démarre à la même date que la date de début du projet
 				$end = '';
 
-				Doc2Project::parseLines($object, $project, $start,$end);
+				$TlinesInfos = Doc2Project::parseLines($object, $project, $start,$end);
+
+                if(!empty(getDolGlobalInt('DOC2PROJECT_DEBUGCREATETASK'))) {
+                    $TmsgsDef = array(
+                        'linesActuallyAdded' => 'mesgs', // plus fiable que linesImported
+                        'linesExcluded' => 'warnings',
+                        'linesImportError' => 'errors'
+                    );
+                    $linesThatHaveInfos = 0;
+                    foreach ($TmsgsDef as $info => $level) {
+                        if (! empty($TlinesInfos[$info])) {
+                            $linesThatHaveInfos += $TlinesInfos[$info];
+                            $msgTradKey = 'Doc2ProjectTaskCreationMessage_' . $level;
+                            $msg = $langs->trans($msgTradKey, $TlinesInfos[$info]);
+                            setEventMessage($msg, $level);
+                        }
+                    }
+                    if($linesThatHaveInfos < 1) setEventMessage($langs->trans('Doc2ProjectTaskCreationMessage_NoTasksCreated'), 'warnings');
+                }
+
 
 				// LIEN OBJECT / PROJECT
 				$project->date_end = $end;
-				if($resetProjet) $project->statut = 0;
-				$project->update($user);
+                // il vient d'où celui-là on sait pas ???
+				if(!empty($resetProjet)) $project->statut = 0;
+				$ret = $project->update($user);
+                if($ret < 0) setEventMessage($langs->trans('Doc2ProjectErrorUpdateProject'), 'errors');
 
-				if (!empty($conf->global->DOC2PROJECT_VALIDATE_CREATED_PROJECT)) $project->setValid($user);
+				if (getDolGlobalInt('DOC2PROJECT_VALIDATE_CREATED_PROJECT')) $project->setValid($user);
 
 				//$object->setProject($project->id);
-				if($conf->global->DOC2PROJECT_AUTO_AFFECT_PROJECTLEADER) $project->add_contact($user->id,'PROJECTLEADER','internal');
+				if(getDolGlobalInt('DOC2PROJECT_AUTO_AFFECT_PROJECTLEADER')) $project->add_contact($user->id,'PROJECTLEADER','internal');
 				//exit;
 				header('Location:'.dol_buildpath('/projet/tasks.php?id='.$project->id,1));
 			}
@@ -306,5 +355,34 @@ class ActionsDoc2Project
 		return 0;
 	}
 
-
+	/**
+	 * afterCreateProject
+	 *
+	 * @param array()		   $parameters	  Hook metadatas (context, etc...)
+	 * @param CommonObject    &$object        The object being processed (e.g., an invoice, proposal, etc...)
+	 * @param string          &$action        The current action (usually create, edit, or null)
+	 * @param HookManager      $hookmanager   Hook manager instance to allow calling another hook
+	 * @return int                            Returns < 0 on error, 0 on success, 1 to replace standard code
+	 */
+	function afterCreateProject($parameters, &$object, &$action, $hookmanager): int
+	{
+		global $conf, $user, $db;
+		if ($action == 'afterCreateProject' && !empty($conf->global->DOC2PROJECT_ADD_USAGE_TASK_ON_PROJECT)){
+			$project = new Project($db);
+			if ($project->fetch($parameters['project']->id) > 0){
+				$project->usage_task = 1;
+				if ($project->update($user, 1) >= 0) {
+					return 0;
+				}
+				else {
+					setEventMessage($db->lasterror());
+					return -1;
+				}
+			}else {
+				setEventMessage($db->lasterror());
+				return -1;
+			}
+		}
+		return 0;
+	}
 }

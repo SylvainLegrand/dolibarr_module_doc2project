@@ -1,4 +1,9 @@
 <?php
+/**
+* SPDX-License-Identifier: GPL-3.0-or-later
+* This file is part of Dolibarr module Doc2Project
+*/
+
 
 	if(is_file('../main.inc.php'))$dir = '../';
 	else  if(is_file('../../../main.inc.php'))$dir = '../../../';
@@ -19,7 +24,7 @@
 		define('DB_NAME',$dolibarr_main_db_name);
 		define('DB_USER',$dolibarr_main_db_user);
 		define('DB_PASS',$dolibarr_main_db_pass);
-		define('DB_DRIVER',$dolibarr_main_db_type);
+		define('DB_DRIVER',$dolibarr_main_db_type ?? 'mysql');
 	}
 
 	dol_include_once('/abricot/inc.core.php');
