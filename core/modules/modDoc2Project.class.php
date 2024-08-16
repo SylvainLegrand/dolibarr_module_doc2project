@@ -58,7 +58,7 @@ class modDoc2Project extends DolibarrModules
 		// Module description, used if translation string 'ModuleXXXDesc' not found (where XXX is value of numeric property 'numero' of module)
 		$this->description = "Convert a proposal or customer order to a project";
 		// Possible values for version are: 'development', 'experimental', 'dolibarr' or version
-		$this->version = '3.5.0';
+		$this->version = '3.5.2';
 		// Url to the file with your last numberversion of this module
 		require_once __DIR__ . '/../../class/techatm.class.php';
 		$this->url_last_version = \doc2project\TechATM::getLastModuleVersionUrl($this);
@@ -122,9 +122,7 @@ class modDoc2Project extends DolibarrModules
 			array('DOC2PROJECT_AUTO_ON_PROPOSAL_CLOSE','chaine','0','Launch function when proposal is closed signed',1),
 			array('DOC2PROJECT_AUTO_ON_ORDER_VALIDATE','chaine','0','Launch function when order is validated',1),
 			array('DOC2PROJECT_NB_HOURS_PER_DAY','chaine','7','Used to convert service duration in hours',1),
-			array('DOC2PROJECT_TASK_REF_PREFIX','chaine','TA','Prefix for task reference, will be used with proposal or order line ID to be unique',1),
-			array('DOC2PROJECT_ADD_USAGE_TASK_ON_PROJECT','chaine','0','Check the box to track tasks and time spent on automatic project creation',1)
-
+			array('DOC2PROJECT_TASK_REF_PREFIX','chaine','TA','Prefix for task reference, will be used with proposal or order line ID to be unique',1)
 		);
 
 		// Array to add new pages in new tabs
@@ -290,12 +288,6 @@ class modDoc2Project extends DolibarrModules
 
 		dol_include_once('/core/class/extrafields.class.php');
 		$extrafields=new ExtraFields($this->db);
-		//$res = $extrafields->addExtraField('thm', $langs->trans('THM'), 'double', 0, '', 'user'); // existe déjà dans la base rajouté par MKO (même si moisi)
-
-		if((float)DOL_VERSION<=3.5) {
-			$this->db->query('ALTER TABLE '.MAIN_DB_PREFIX.'user ADD thm DOUBLE NOT NULL DEFAULT \'0\'');
-		 	$this->db->query('ALTER TABLE '.MAIN_DB_PREFIX.'projet_task_time ADD thm DOUBLE NOT NULL DEFAULT \'0\'');
-		}
 
 		$res = $extrafields->addExtraField('soldprice', $langs->trans('SoldPrice'), 'double', 0, '24,4', 'projet_task');
 
